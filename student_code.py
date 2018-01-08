@@ -1,45 +1,53 @@
 from math import sqrt
+from queue import PriorityQueue
 import sys
+
+""" Note: in Python list.sort()
+Timsort has been Python's standard sorting algorithm since version 2.3
+Worst-case performance: O(n log n)}
+Best-case performance: O(n)
+Average performance: O(n log n)
+Worst-case space complexity: O(n)
+"""
 
 def shortest_path(M,start,goal):
     print("shortest path called")
     expanded = set()
-    frontier = set([start])
-    g_cost = {start:0} # cost from origin, without heuristic
+    frontier = [start] # list of tuples (node, f_cost), ordered by cost (lowest to highest)
+    g_cost = {start:0} # real cost from start
+    h_cost = {start:h_function(start, goal, M.intersections)}# heuristic cost
     g_predecessor = {start:None}
     while frontier:
         # Choose best node from frontier
-        best_node, best_cost = None, sys.maxsize
-        for node in frontier:
-            node_cost = g_cost[node]+h_function(node, goal, M.intersections)
-            if node_cost < best_cost:
-                best_cost = node_cost
-                best_node = node
+        best_node = frontier.pop(0)
         
-        if best_node == None:
-            break
-
         # Choose best_node and expand it
-        frontier.remove(best_node)
         expanded.add(best_node)
         
         if best_node == goal:
             continue
         
         # Update expanded nodes costs coming from best_node
-        expansion = M.roads[best_node]
-        for node in expansion:
-            node_cost = g_cost[best_node] + distance(M.intersections[best_node], M.intersections[node])
-            if node not in expanded:
-                if node not in frontier:
-                    frontier.add(node)
-                    g_cost[node] = node_cost
-                    g_predecessor[node] = best_node
-                elif node_cost < g_cost[node]:
-                    g_cost[node] = node_cost
-                    g_predecessor[node] = best_node
+        neighbours = M.roads[best_node]
+        for neighbour in neighbours:
+            # Calculate the real cost for the node
+            neighbour_cost = g_cost[best_node] + distance(M.intersections[best_node], M.intersections[neighbour])
+            if neighbour not in expanded:
+                if neighbour not in frontier:
+                    frontier.append(neighbour)
+                    g_cost[neighbour] = neighbour_cost
+                    h_cost[neighbour] = h_function(neighbour, goal, M.intersections)
+                    g_predecessor[neighbour] = best_node
+                    # Order frontier by f=g+h
+                    frontier.sort(key=lambda x:g_cost[x]+h_cost[x])
+                elif neighbour_cost < g_cost[neighbour]:
+                    # Update cost
+                    g_cost[neighbour] = neighbour_cost
+                    h_cost[neighbour] = h_function(neighbour, goal, M.intersections)
+                    g_predecessor[neighbour] = best_node
+                    # Order frontier by f=g+h
+                    frontier.sort(key=lambda x:g_cost[x]+h_cost[x])
 
-        #print("- ", best_node, best_cost, expansion, g_cost, g_predecessor)
     
     # Get the solution
     result = []
@@ -50,9 +58,9 @@ def shortest_path(M,start,goal):
 
     return result
 
-def h_function(current, goal, coords):
+def h_function(node, goal, coords):
     """ Heuristic. Distance from current to goal. """
-    return distance(coords[current], coords[goal])
+    return distance(coords[node], coords[goal])
 
 def distance(node1, node2):
     x2, y2 = node2[0], node2[1]
